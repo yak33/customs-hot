@@ -72,6 +72,115 @@
       ],
       "site_fulltext": false,
       "syndicate_fulltext": false
+    },
+    {
+      "id": "web-gacc-fagui",
+      "name": "海关总署 · 海关法规与公告",
+      "kind": "web_list",
+      "config": {
+        "url": "http://www.customs.gov.cn/customs/302249/302266/index.html",
+        "baseUrl": "http://www.customs.gov.cn",
+        "itemSelector": "ul.news_list li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "_aihot": {
+          "initialBackfillLimit": 8
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [
+        "官方"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "taxcommittee-gg",
+      "name": "国务院关税税则委员会 · 公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://gss.mof.gov.cn/gzdt/zhengcefabu/",
+        "itemSelector": "ul.liBox li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "_aihot": {
+          "initialBackfillLimit": 8
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [
+        "官方",
+        "关税"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "mofcom-trb",
+      "name": "商务部 · 贸易救济与贸易摩擦公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://trb.mofcom.gov.cn/",
+        "baseUrl": "https://trb.mofcom.gov.cn",
+        "itemSelector": "li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "allowUrlPrefixes": [
+          "https://trb.mofcom.gov.cn/myjjdc/",
+          "https://trb.mofcom.gov.cn/mybldc/",
+          "https://trb.mofcom.gov.cn/mymcyd/"
+        ],
+        "_aihot": {
+          "initialBackfillLimit": 8
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [
+        "官方",
+        "贸易救济"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "mofcom-xwfb",
+      "name": "商务部 · 新闻发布",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.mofcom.gov.cn/xwfb/index.html",
+        "baseUrl": "https://www.mofcom.gov.cn",
+        "itemSelector": "ul.txtList_01 li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "allowUrlPrefixes": [
+          "https://www.mofcom.gov.cn/xwfb/"
+        ],
+        "_aihot": {
+          "initialBackfillLimit": 8
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [
+        "官方"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
     }
   ]
 }

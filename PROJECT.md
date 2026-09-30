@@ -17,7 +17,26 @@
 | 3. 内部试用 | 部署到腾讯云，给集团关务 / 物流同事用 | 收集 2 周以上真实使用反馈 |
 | 4. 再议公开 | 根据试用效果决定是否做公开行业站 | 届时再评估备案、品牌、合规 |
 
-**当前处于阶段 1–2 之间。**
+**当前处于阶段 1 完成、阶段 2 进行中**（2026-09-30：本机跑通，见下）。
+
+## 本机运行状态（2026-09-30）
+
+- 环境：Windows + Node 24 直跑 TS（无构建步骤）+ PostgreSQL 17.11 本机服务（`postgresql-x64-17`），库 `customs_dev`（运行）/ `customs_test`（测试）。
+- 启动方式（`docs/deploy.md` 的"不用 Docker"路径）：
+  ```bash
+  node --env-file=.env apps/api/src/main.ts          # 接口 3001
+  node --env-file=.env apps/worker/src/main.ts       # 后台任务
+  cd apps/web && NODE_ENV=production node --env-file=../../.env server.ts   # 网页 3000
+  ```
+- `scripts/smoke.ts` 30/30 通过；后台"信源"页 6 条信源正常展示。
+- `.env`：`init-env` 生成后，开发期保持 `COLLECT_ENABLED=false`、`MODEL_CALLS_ENABLED=false`（安全阀，仓库规矩），补了 `DATABASE_URL` / `API_BASE_URL` / `DEV_AUTH_ROLE=admin`（免登录进后台，仅本机开发）。`LLM_API_KEY` 待填。
+- 上游代码修复一处：`apps/web/server.ts` 动态 `import()` 在 Windows 盘符路径下报 `ERR_UNSUPPORTED_ESM_URL_SCHEME`（已改用 `pathToFileURL`，Linux 行为不变，可回传上游）。
+
+### 本机跑测试的已知结论（2026-09-30）
+
+- **必须每次用全新空库**：`dropdb customs_test && createdb customs_test && node scripts/migrate.ts` 后再 `npm test`。重复使用同一个库时，残留文章会抢走 `translatePending({limit:1})` 的"最新一篇"名额，translate / alerts 测试假失败（CI 每次全新库，上游因此从未暴露）。
+- **Windows 必挂 5 个 SIGTERM 生命周期测试**（`tests/` 里 worker 停机相关）：Windows 不向进程投递 SIGTERM 信号，属平台差异；Linux / 腾讯云部署环境不受影响。
+- 空库全量跑：136 个测试 128 过、2 挂 + 6 取消（均为上述 SIGTERM 类）+ translate 3 个受同批次前面文件的残留干扰（空库单独跑该文件全过）。`apps/web` 测试 13/13 全过。
 
 ## 已确认的决策
 
@@ -28,11 +47,19 @@
 - **模型**：用 OpenAI 兼容接口（DeepSeek / 千问 / 智谱均可），所有步骤先共用一个模型，跑顺后再按 `.env.example` 里的分工细化。
 - **部署目标**：腾讯云 Linux + Docker Compose，2 核 4G 起步。
 
-## 首批信源：单一窗口（已配置）
+## 首批信源：官方三源已立，P0 基本就位（2026-09-29）
 
-`industry/sources.json` 里现在是两条 `json_list` 信源，取代了上游的 18 个 AI 示范源。
+`industry/sources.json` 里现在是 6 条信源，取代了上游的 18 个 AI 示范源：
 
-**接口探测结论**（2026-09-29 实测，`https://www.singlewindow.cn/#/notice` 和 `#/policy` 是 SPA，列表数据来自这个接口）：
+| id | 信源 | kind | 验证方式 |
+|---|---|---|---|
+| `sw-notice` / `sw-policy` | 单一窗口 · 通知公告 / 政策法规 | `json_list` | 接口实测 |
+| `web-gacc-fagui` | 海关总署 · 海关法规与公告 | `web_list` | 框架解析器 `fromHtml` 离线实测 10 条全对 |
+| `taxcommittee-gg` | 国务院关税税则委员会 · 公告（财政部关税司） | `web_list` | 框架解析器离线实测 10 条全对 |
+| `mofcom-trb` | 商务部 · 贸易救济与贸易摩擦公告（子站） | `web_list` | 框架解析器离线实测 37 条全对 |
+| `mofcom-xwfb` | 商务部 · 新闻发布 | `web_list` | 框架解析器离线实测 30 条全对 |
+
+**单一窗口接口探测结论**（2026-09-29 实测，`https://www.singlewindow.cn/#/notice` 和 `#/policy` 是 SPA，列表数据来自这个接口）：
 
 ```
 POST https://www.singlewindow.cn/access/ui/SW-SITE-FRONT/Article001
@@ -43,15 +70,32 @@ catalogid：tzgg=通知公告（详情页 breadNum=bc12）｜zcfg=政策法规�
 ```
 
 - 浏览器请求带的 `?cw2qEsfh=` 参数是反爬签名，**服务端不校验**，裸调可用（UA + Referer 足够）。
-- 详情正文走 `Article002`（`{"Head":{},"Data":"{\"articleid\":\"xxx\"}"}`，返回 `bodytext` HTML）；详情页本身是 SPA，抓不到正文。
+- 详情正文走 `Article002`（`{"Head":{},"Data":"{\"articleid\":\"xxx\"}"}`，返回 `bodytext` HTML）；详情页本身是 SPA，抓不到正文；列表接口的 `bodytext` 字段实测为空。
 - **当前折中**：`summaryIsBody: true`，用列表接口的一句话摘要当正文，够预筛和评分用，不依赖付费渲染。要全文时再写个小脚本调 `Article002` 走 `/api/ingest/items` 外部推送（见 `docs/sources.md`）。
 - 风险提示：这是政府站的内部接口，改版或加校验就会失效，后台「信源」页会显示抓取失败原因。
 
+**商务部**（同日探测）：主站是 JPAAS 架构，"政策发布"栏目列表走接口且返回"JSON 包 HTML"，框架不支持，未接入；实际接入的是两个静态入口——贸易救济子站首页（反倾销/反补贴/贸易摩擦应对三区块，`li` + 路径白名单过滤，37 条）和主站新闻发布聚合页（7 个子栏目，`ul.txtList_01 li`，30 条）。**注意**：贸易救济子站对 Windows curl 会 SSL 重协商失败，但 Node fetch 正常，框架抓取不受影响。
+
+**国家税务总局（暂缓）**（同日探测）："最新文件"列表静态但条目只有文号没有日期；详情页正文 JS 动态加载，detail 补日期走不通；政策法规库列表也是骨架；统一搜索接口 `search5/search/s` 参数未摸通。后续摸通接口（或走 `external` 外部推送）再接入。海关总署部分栏目（政策解读 `302272` 等）仍被 WAF 拦截（412）。**新增信源必须先实测**（详见 `project-docs/02-信源建设清单.md` 探测记录）。
+
+## 项目文档（project-docs/）
+
+> 本项目的方案、清单与手册独立于上游 `docs/`（框架文档）存放，避免同步上游时混淆。
+
+| 文档 | 内容 |
+|---|---|
+| [00-上游项目AIHOT分析](project-docs/00-上游项目AIHOT分析.md) | 框架架构与工程亮点速览 |
+| [01-总体改造方案](project-docs/01-总体改造方案.md) | `industry/` 逐文件改造清单；**分类体系（9 类）、内容类型（8 类）、五维评分权重、机构实体词典草案 v0.1** |
+| [02-信源建设清单](project-docs/02-信源建设清单.md) | P0/P1/P2 信源清单、接入方法、探测记录与待核实项 |
+| [03-内部试用部署方案](project-docs/03-内部试用部署方案.md) | 腾讯云部署、飞书推送、安全阀、预算、试用成功指标与复盘决策点 |
+| [04-评测与校准手册](project-docs/04-评测与校准手册.md) | 关务版 gold 样本标注规范、评测命令、门槛校准循环 |
+| [05-风险与合规清单](project-docs/05-风险与合规清单.md) | 内容准确性纪律、版权、访问控制、第三方依赖、公开阶段 checklist |
+
 ## 待决策事项（需要使用者本人回答，Agent 不要替他定）
 
-1. **扩充信源**：目前只有单一窗口两条。海关总署公告栏、商务部、税务总局（出口退税）、行业媒体等待补。
+1. **扩充信源**：官方侧已有单一窗口（2 条）+ 海关总署（1 条）+ 税委会（1 条）+ 商务部（2 条）。税务总局暂缓（接口未摸通，见 02 文档）；Federal Register 需代理；地方海关**待业务侧指定关区**。
 2. **精选口味**：什么消息对我们是重要的（如税率调整、监管新政、AEO、出口退税），什么是噪声（如货代广告、课程软文）——这决定 `industry/prompts/selection-score.md` 怎么改。
-3. **分类怎么分**：`industry/taxonomy.ts` 还是 AI 行业的类别和标签，要按关务重新设计。
+3. **分类怎么分**：`industry/taxonomy.ts` 还是 AI 行业的类别和标签。**01 文档里已有关务版草案 v0.1（9 个分类、8 个内容类型、标签词表、机构词典），请业务对接人过一遍确认或修改后落地。**
 4. **条款与隐私说明**：`industry/pages/` 目前是模板，上线前需本人确认（内部站也应改写）。
 
 ## 改造与部署入口
@@ -64,6 +108,6 @@ catalogid：tzgg=通知公告（详情页 breadNum=bc12）｜zcfg=政策法规�
 ## 仓库与上游
 
 - **本项目仓库**：`https://github.com/yak33/customs-hot`（私有），remote 名 `origin`，分支 `main`。
-- 本目录是 AIHOT 的快照副本，`main` 的第一个提交是上游快照基线（不带上游 git 历史）。后续如需同步上游更新，从 https://github.com/KKKKhazix/AIHOT 对照挑选合并。
+- 本目录是 AIHOT 的快照副本，`main` 的第一个提交是上游快照基线（不带上游 git 历史）。**已添加 `upstream` remote 指向 https://github.com/KKKKhazix/AIHOT**，同步上游用 `git fetch upstream && git log HEAD..upstream/main --oneline` 查看差异，再按需 cherry-pick / 合并。
 - `LICENSE`（MIT）和 `NOTICE` 必须保留；AIHOT 的名字和 Logo 不在许可范围内。
-- AI 专属模块（模型榜、Codex 监控）对关务无意义：改造时在 `industry/features.ts` 把两项设为 `false`。
+- AI 专属模块（模型榜、Codex 监控）对关务无意义：✅ 2026-09-29 已在 `industry/features.ts` 把两项设为 `false`。
