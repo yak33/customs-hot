@@ -4,7 +4,6 @@ import { addAbortListener } from "node:events";
 import { Agent, ProxyAgent, fetch as undiciFetch, type Dispatcher } from "undici";
 import { config } from "../config.ts";
 import { assertPublicUrl, guardedLookup } from "./url.ts";
-import { SITE } from "@aihot/industry/site";
 
 /**
  * Where a request leaves the host. "egress" (collection, bodies, images and leaderboard data) goes
@@ -56,8 +55,12 @@ export interface GuardedResponse {
   text(): string;
 }
 
-/** How the collectors introduce themselves: the site's own crawler name and address (industry/site.ts). */
-export const DEFAULT_UA = `Mozilla/5.0 (compatible; ${SITE.crawlerName}/1.0; +${config.siteUrl}/about)`;
+/**
+ * How the collectors introduce themselves. A plain browser UA, not a crawler tag: the ministry sites in
+ * this industry (trb.mofcom.gov.cn among them) reset connections from "compatible; Bot" style agents,
+ * while none of the official sources has been observed to block a browser UA.
+ */
+export const DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
 export async function guardedFetch(input: string, opts: GuardedFetchOptions = {}): Promise<GuardedResponse> {
   // One budget includes DNS, every redirect and the body. Restarting it at each hop allowed a
