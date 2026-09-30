@@ -5,6 +5,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer, request as httpRequest } from "node:http";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { createRequestListener } from "@react-router/node";
 import { isApiOwned, resolveRedirect } from "@aihot/contracts/http-policy";
 
@@ -35,7 +36,8 @@ const TYPES: Record<string, string> = {
   ".map": "application/json",
 };
 
-const build = await import(path.resolve(import.meta.dirname, "build/server/index.js"));
+// Windows 的动态 import() 不认 D:/ 开头的盘符路径，必须转成 file:// URL（Linux 行为不变）。
+const build = await import(pathToFileURL(path.resolve(import.meta.dirname, "build/server/index.js")).href);
 const ssr = createRequestListener({ build, mode: "production" });
 
 class BadRequest extends Error {}
