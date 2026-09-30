@@ -27,6 +27,14 @@
 - `.env`（服务器侧生成）：`SITE_URL=http://82.157.149.224:3000`，`COLLECT_ENABLED=false`、`MODEL_CALLS_ENABLED=false`（等 `LLM_API_KEY`，智谱 glm-5.3-flash 预配置，填好后两个阀改 true 再 `docker compose up -d`）。
 - **待办**：腾讯云安全组放行 3000 端口（限公司出口 IP / VPN 网段，内部试用不备案）；飞书群机器人 webhook（03 文档 §3）。
 
+## 模型链路结论（2026-09-30 实测）
+
+- **在用**：中转 `https://runanytime.hxi.me/v1` + `z-ai/glm-5.2`（非流式 JSON、输出正常）。`LLM_BASE_URL` 只能填到 `/v1`，框架自己拼 `/chat/completions`。
+- **弃用教训**：`z-ai/glm-5.3-flash` 是思考型，思考会把框架预筛 512 / 评分 1024 的 maxTokens 吃光导致 content 为空（"No JSON object"批量失败）；中转不透传 `reasoning_effort`/`thinking` 参数，控不住。muyuan.do（唯一模型渠道上游 token 失效）和 api-bj.ark2.cn（强制 SSE 流式 + glm/gemini 524）都不可用。
+- **限流**：该中转 1 分钟最多 15 次请求。已在 `budgets` 表把 `llm` 服务设为 `per_minute=13`（框架主动节流排队，不再撞 429）。
+- **首个端到端结果**：预筛/评分提示词换成关务版 v0.1 后，首批精选 4 条（最高 87 分：税委会调整对加拿大加征关税），份量判断对路。存量旧公告按"旧文不刷屏"规则正确归档，新发布的文章才会进"今天"和日报。
+- **下一步内容侧**：`industry/taxonomy.ts` 还是 AI 分类（analyses.category 显示 industry），等业务对接人确认 01 文档 §2 草案后落地；其余 16 个提示词按 01 文档 §4 清单逐个行业化。
+
 ## 本机运行状态（2026-09-30）
 
 - 环境：Windows + Node 24 直跑 TS（无构建步骤）+ PostgreSQL 17.11 本机服务（`postgresql-x64-17`），库 `customs_dev`（运行）/ `customs_test`（测试）。
