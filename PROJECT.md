@@ -17,7 +17,15 @@
 | 3. 内部试用 | 部署到腾讯云，给集团关务 / 物流同事用 | 收集 2 周以上真实使用反馈 |
 | 4. 再议公开 | 根据试用效果决定是否做公开行业站 | 届时再评估备案、品牌、合规 |
 
-**当前处于阶段 1 完成、阶段 2 进行中**（2026-09-30：本机跑通，见下）。
+**当前处于阶段 3 起步**（2026-09-30：本机跑通，内部试用版已部署腾讯云，安全阀待 key）。
+
+## 腾讯云部署状态（2026-09-30 首版）
+
+- 服务器：`root@82.157.149.224`（SSH 密钥 `~/.ssh/jgagent_deploy`，2 核 2G，已加 2G 临时 swap `/swapfile2` 保构建）。同机还跑着 portainer 与 jgagent 系列，互不影响。
+- 代码位置：`/opt/customs-hot`，来源是 `git bundle`（服务器无 GitHub 凭据；更新方式：本机 `git bundle create /tmp/customs-hot.bundle main` → scp → 服务器 `git -C /opt/customs-hot pull /tmp/customs-hot.bundle main` → `docker compose up -d --build`）。
+- 容器：db / api / worker / web 四个常驻 + setup 一次性（35 迁移、38 主题、6 信源导入）；宿主机 `curl localhost:3000` 200，`/api/health` db:ok，MCP 端点正常。
+- `.env`（服务器侧生成）：`SITE_URL=http://82.157.149.224:3000`，`COLLECT_ENABLED=false`、`MODEL_CALLS_ENABLED=false`（等 `LLM_API_KEY`，智谱 glm-5.3-flash 预配置，填好后两个阀改 true 再 `docker compose up -d`）。
+- **待办**：腾讯云安全组放行 3000 端口（限公司出口 IP / VPN 网段，内部试用不备案）；飞书群机器人 webhook（03 文档 §3）。
 
 ## 本机运行状态（2026-09-30）
 
