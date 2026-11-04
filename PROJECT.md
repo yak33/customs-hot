@@ -128,5 +128,6 @@ catalogid：tzgg=通知公告（详情页 breadNum=bc12）｜zcfg=政策法规�
 
 - **本项目仓库**：`https://github.com/yak33/customs-hot`（私有），remote 名 `origin`，分支 `main`。
 - 本目录是 AIHOT 的快照副本，`main` 的第一个提交是上游快照基线（不带上游 git 历史）。**已添加 `upstream` remote 指向 https://github.com/KKKKhazix/AIHOT**，同步上游用 `git fetch upstream && git log HEAD..upstream/main --oneline` 查看差异，再按需 cherry-pick / 合并。
+- **常设本地补丁（每次同步上游后必须核对重放，4.0 同步时丢过一次）**：`packages/backend/src/lib/http-fetch.ts` 的 `DEFAULT_UA` 改为纯浏览器 UA——部委站点（trb.mofcom.gov.cn 等）会重置 "compatible; Bot" 形态的连接（2026-09-30 实测，d252bd4）；上游无 UA 配置入口。其余框架文件与上游保持一致（`apps/web/server.ts` 的 Windows file URL 修复上游已吸收）。
 - `LICENSE`（MIT）和 `NOTICE` 必须保留；AIHOT 的名字和 Logo 不在许可范围内。
 - AI 专属模块（模型榜、Codex 监控）对关务无意义：上游 4.0 已将其移出框架，`site/modules/` 保持空清单即可（原 `industry/features.ts` 关闭记录随升级废弃）。

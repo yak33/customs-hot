@@ -5,7 +5,7 @@ import { Agent, Pool, ProxyAgent, fetch as undiciFetch, type Dispatcher } from "
 import { config } from "../config.ts";
 import { assertPublicUrl, guardedLookup } from "./url.ts";
 import { createEgressProxy, createEgressResolver, OUTBOUND_HTTP_OPTIONS } from "./egress-proxy.ts";
-import { DEPLOYMENT, SITE } from "@aihot/site";
+import { DEPLOYMENT } from "@aihot/site";
 
 /**
  * Where a request leaves the host. "egress" (collection, bodies, images and other public data) goes
@@ -140,8 +140,12 @@ export function requireOk(res: GuardedResponse, what?: string): GuardedResponse 
   return res;
 }
 
-/** How the collectors introduce themselves: the site's own crawler name and address (site/site.ts). */
-export const DEFAULT_UA = `Mozilla/5.0 (compatible; ${SITE.crawlerName}; +${config.siteUrl}/about)`;
+/**
+ * 本地补丁（同步上游时勿丢，见 PROJECT.md「仓库与上游」）：采集用纯浏览器 UA，不用爬虫标识。
+ * 本行业的部委站点（trb.mofcom.gov.cn 等）会对 "compatible; Bot" 形态的 UA 重置连接，
+ * 而官方信源没有观察到拦截浏览器 UA 的；上游 4.0 无 UA 配置入口，只能改这里。
+ */
+export const DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
 /** The language a source asked for (its config.acceptLanguage), replacing the default preference above. */
 export const languageHeaders = (language: string | undefined): Record<string, string> => language ? { "accept-language": language } : {};
