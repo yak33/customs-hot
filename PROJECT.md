@@ -30,7 +30,7 @@
 
 ## 模型链路结论（2026-11-04 更新）
 
-- **当前主用（服务器在配）**：中转 `https://runanytime.hxi.me/v1` + `z-ai/glm-5.2`。`LLM_BASE_URL` 只能填到 `/v1`，框架自己拼 `/chat/completions`。**2026-11-04 傍晚实测该 key 已 401 失效（Invalid token），需登后台查明原因/换 key**。
+- **当前主用（服务器在配）**：中转 `https://runanytime.hxi.me/v1` + `z-ai/glm-5.2`。`LLM_BASE_URL` 只能填到 `/v1`，框架自己拼 `/chat/completions`。旧 key 已 401 失效；**2026-11-04 晚换的新 key 有效但落在 "Other" 分组：47 个常见模型名全部 503 无渠道（glm/deepseek/grok/gpt/gemini/claude/qwen/kimi/minimax/step/doubao 全试过），限流 20 次/分钟且含失败次数——需回后台查该 key 的分组/模型权限或问站长**。
 - **muyuan.do（2026-11-04 上午实测可用，傍晚起全站故障）**：中转 `https://muyuan.do/v1`（新 key），共 3 个模型：grok-4.7 / grok-4.6 / grok-4.7-build-fast。非流式 JSON 正常；**思考型但 reasoning tokens 不占 max_tokens 预算**（预筛 512 限额下输出完整，与 glm-5.3-flash 吃光限额的坑不同）；`reasoning_effort=low` 透传有效（思考 ~739 tokens、单条 9 秒）；5 并发无限流。接入方式：`.env` 填 `LLM_BASE_URL=https://muyuan.do/v1`、`LLM_MODEL=grok-4.7`、`LLM_EXTRA_JSON={"reasoning_effort":"low"}`。注意消耗速度待观察（响应带 cost_in_usd_ticks，单位不明）。**2026-11-04 16:25 起全站 500 "Database error"（本机与服务器同样复现），恢复时间未知；注意不带 key 探活返回 401 只说明 token 校验先于查库，不代表恢复。**
 - **弃用教训**：`z-ai/glm-5.3-flash` 是思考型，思考会把预筛 512 / 评分 1024 的 maxTokens 吃光导致 content 为空；muyuan.do 旧 key 上游 token 失效（新 key 恢复过，后又遇全站故障）。`api-bj.ark2.cn` 截至 2026-11-04 仍然 key 分组下无任何可用渠道（8 个常见模型名全 503 model_not_found）。
 - **2026-11-04 傍晚试过的渠道**：`elysia.h-e.top`（grok-4.7-chat 会随机返回无意义英文乱码、5 连发全失败，质量不可信，弃）；`ai.hybgzs.com`（minimax-m3.1-flash 实测质量好、4/4 稳定、3-6 秒/条，但 **WAF 封腾讯云机房 IP**：服务器侧 curl/node fetch 全 403，本机家宽可用——生产不可用，除非配 EGRESS_PROXY_URL 走代理出网）。
