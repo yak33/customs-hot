@@ -17,15 +17,16 @@
 | 3. 内部试用 | 部署到腾讯云，给集团关务 / 物流同事用 | 收集 2 周以上真实使用反馈 |
 | 4. 再议公开 | 根据试用效果决定是否做公开行业站 | 届时再评估备案、品牌、合规 |
 
-**当前处于阶段 3 起步**（2026-11-04：已同步上游 4.0；内部试用版部署腾讯云，安全阀待 key）。
+**当前处于阶段 3 起步**（2026-11-04：已同步上游 4.0；内部试用版迁移到个人腾讯云 62 机器，安全阀待 key）。
 
-## 腾讯云部署状态（2026-09-30 首版）
+## 腾讯云部署状态（2026-11-04 迁移）
 
-- 服务器：`root@82.157.149.224`（SSH 密钥 `~/.ssh/jgagent_deploy`，2 核 2G，已加 2G 临时 swap `/swapfile2` 保构建）。同机还跑着 portainer 与 jgagent 系列，互不影响。
-- 代码位置：`/opt/customs-hot`，来源是 `git bundle`（服务器无 GitHub 凭据；更新方式：本机 `git bundle create /tmp/customs-hot.bundle main` → scp → 服务器 `git -C /opt/customs-hot pull /tmp/customs-hot.bundle main` → `docker compose up -d --build`）。
-- 容器：db / api / worker / web 四个常驻 + setup 一次性（35 迁移、38 主题、6 信源导入）；宿主机 `curl localhost:3000` 200，`/api/health` db:ok，MCP 端点正常。
-- `.env`（服务器侧生成）：`SITE_URL=http://82.157.149.224:3000`，`COLLECT_ENABLED=false`、`MODEL_CALLS_ENABLED=false`（等 `LLM_API_KEY`，智谱 glm-5.3-flash 预配置，填好后两个阀改 true 再 `docker compose up -d`）。
+- **旧机 `82.157.149.224` 已于 2026-11-04 过期释放，数据（已采集文章、精选、数据库）全部丢失**，新库从零开始。
+- 现部署在个人腾讯云 `root@62.234.171.243`（SSH 密钥 `dearmrzhang.pem`，来自飞书「服务器信息」文档；4 核 3.6G、8G swap、Docker 28）。同机还跑着 automation_hub、sub2api、academy、portainer 等，互不影响（customs-hot 只占宿主机 3000 端口，postgres 不对外发布）。
+- 代码位置：`/home/customs-hot`（`git clone --branch main` 自 bundle；服务器无 GitHub 凭据。更新方式：本机 `git bundle create /tmp/customs-hot.bundle main` → scp → 服务器 `git -C /home/customs-hot pull /tmp/customs-hot.bundle main` → `docker compose up -d --build`）。
+- `.env`（2026-11-04 重新生成）：`SITE_URL=http://62.234.171.243:3000`，`COLLECT_ENABLED=false`、`MODEL_CALLS_ENABLED=false`（安全阀，等 `LLM_API_KEY` 填入后改 true 再 `docker compose up -d`）；模型预设已按在用链路写好（runanytime 中转 + `z-ai/glm-5.2`），管理员密码只存在服务器 `.env` 里。
 - **待办**：腾讯云安全组放行 3000 端口（限公司出口 IP / VPN 网段，内部试用不备案）；飞书群机器人 webhook（03 文档 §3）。
+- 另有华为云 `1.94.193.96`（root，密码在飞书「服务器信息」文档）**未部署本站**：上面跑着公司项目（中欧桥、portainer），1.7G 内存太低，避免互相影响。
 
 ## 模型链路结论（2026-11-04 更新）
 
