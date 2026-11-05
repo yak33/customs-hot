@@ -24,13 +24,14 @@
 - **旧机 `82.157.149.224` 已于 2026-11-04 过期释放，数据（已采集文章、精选、数据库）全部丢失**，新库从零开始。
 - 现部署在个人腾讯云 `root@62.234.171.243`（SSH 密钥 `dearmrzhang.pem`，来自飞书「服务器信息」文档；4 核 3.6G、8G swap、Docker 28）。同机还跑着 automation_hub、sub2api、academy、portainer 等，互不影响（customs-hot 只占宿主机 3000 端口，postgres 不对外发布）。
 - 代码位置：`/home/customs-hot`（`git clone --branch main` 自 bundle；服务器无 GitHub 凭据。更新方式：本机 `git bundle create /tmp/customs-hot.bundle main` → scp → 服务器 `git -C /home/customs-hot pull /tmp/customs-hot.bundle main` → `docker compose up -d --build`）。
-- `.env`（2026-11-04 重新生成）：`SITE_URL=http://62.234.171.243:3000`，`COLLECT_ENABLED=false`、`MODEL_CALLS_ENABLED=false`（安全阀，等 `LLM_API_KEY` 填入后改 true 再 `docker compose up -d`）；模型预设已按在用链路写好（runanytime 中转 + `z-ai/glm-5.2`），管理员密码只存在服务器 `.env` 里。
+- `.env`（2026-11-05 起）：`SITE_URL=http://62.234.171.243:3000`，模型链路已配好（prism 中转 + `gpt-4.1-mini`，见下方模型结论），`COLLECT_ENABLED=true`、`MODEL_CALLS_ENABLED=true` 已开阀，采集→预筛→评分→中文标题全链路验证跑通；管理员密码只存在服务器 `.env` 里。改 `.env` 后 `docker compose up -d` 不会重建容器（env_file 变化不触发），要 `--force-recreate api worker`。
 - **待办**：腾讯云安全组放行 3000 端口（限公司出口 IP / VPN 网段，内部试用不备案）；飞书群机器人 webhook（03 文档 §3）。
 - 另有华为云 `1.94.193.96`（root，密码在飞书「服务器信息」文档）**未部署本站**：上面跑着公司项目（中欧桥、portainer），1.7G 内存太低，避免互相影响。
 
-## 模型链路结论（2026-11-04 更新）
+## 模型链路结论（2026-11-05 更新）
 
-- **当前主用（服务器在配）**：中转 `https://runanytime.hxi.me/v1` + `z-ai/glm-5.2`。`LLM_BASE_URL` 只能填到 `/v1`，框架自己拼 `/chat/completions`。旧 key 已 401 失效；**2026-11-04 晚换的新 key 有效但落在 "Other" 分组：47 个常见模型名全部 503 无渠道（glm/deepseek/grok/gpt/gemini/claude/qwen/kimi/minimax/step/doubao 全试过），限流 20 次/分钟且含失败次数——需回后台查该 key 的分组/模型权限或问站长**。
+- **在用（服务器 62，已验证跑通）**：中转 `https://ai.prism.uno/v1` + `gpt-4.1-mini`（key 使用者提供，存服务器 `.env`）。2026-11-05 实测：非流式 JSON 正常；**非思考型**（completion_tokens≈内容长度，不吃预筛 512 / 评分 1024 的 maxTokens）；单次 5-8 秒；腾讯云机房直连可达（无 hybgzs 那种封机房 IP 的 WAF）。端到端已验证：采集 → 预筛评分 → 中文标题产出正常（反倾销类 55-85 分，份量判断对路）。限流未知，未观察到 429；`budgets.llm` 保持默认 300（13 是 runanytime 专用，prism 用不到）。
+- **runanytime（2026-11-04 结论，暂不可用）**：`https://runanytime.hxi.me/v1` + `z-ai/glm-5.2`。`LLM_BASE_URL` 只能填到 `/v1`，框架自己拼 `/chat/completions`。旧 key 已 401 失效；**2026-11-04 晚换的新 key 有效但落在 "Other" 分组：47 个常见模型名全部 503 无渠道（glm/deepseek/grok/gpt/gemini/claude/qwen/kimi/minimax/step/doubao 全试过），限流 20 次/分钟且含失败次数——需回后台查该 key 的分组/模型权限或问站长**。
 - **muyuan.do（2026-11-04 上午实测可用，傍晚起全站故障）**：中转 `https://muyuan.do/v1`（新 key），共 3 个模型：grok-4.7 / grok-4.6 / grok-4.7-build-fast。非流式 JSON 正常；**思考型但 reasoning tokens 不占 max_tokens 预算**（预筛 512 限额下输出完整，与 glm-5.3-flash 吃光限额的坑不同）；`reasoning_effort=low` 透传有效（思考 ~739 tokens、单条 9 秒）；5 并发无限流。接入方式：`.env` 填 `LLM_BASE_URL=https://muyuan.do/v1`、`LLM_MODEL=grok-4.7`、`LLM_EXTRA_JSON={"reasoning_effort":"low"}`。注意消耗速度待观察（响应带 cost_in_usd_ticks，单位不明）。**2026-11-04 16:25 起全站 500 "Database error"（本机与服务器同样复现），恢复时间未知；注意不带 key 探活返回 401 只说明 token 校验先于查库，不代表恢复。**
 - **弃用教训**：`z-ai/glm-5.3-flash` 是思考型，思考会把预筛 512 / 评分 1024 的 maxTokens 吃光导致 content 为空；muyuan.do 旧 key 上游 token 失效（新 key 恢复过，后又遇全站故障）。`api-bj.ark2.cn` 截至 2026-11-04 仍然 key 分组下无任何可用渠道（8 个常见模型名全 503 model_not_found）。
 - **2026-11-04 傍晚试过的渠道**：`elysia.h-e.top`（grok-4.7-chat 会随机返回无意义英文乱码、5 连发全失败，质量不可信，弃）；`ai.hybgzs.com`（minimax-m3.1-flash 实测质量好、4/4 稳定、3-6 秒/条，但 **WAF 封腾讯云机房 IP**：服务器侧 curl/node fetch 全 403，本机家宽可用——生产不可用，除非配 EGRESS_PROXY_URL 走代理出网）。
